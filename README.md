@@ -1,1 +1,37 @@
 # terraform-provider-adcm
+
+```terraform
+terraform {
+  required_providers {
+    adcm = {
+      source = "github.com/giggsoff/adcm"
+    }
+  }
+}
+
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+provider "adcm" {
+  host     = "http://127.0.0.1:8000"
+  username = "admin"
+  password = "admin"
+}
+
+data "adcm_bundle" "ssh" {
+  name = "SSH Common"
+}
+data "adcm_provider" "ssh" {
+  bundle_id = data.adcm_bundle.ssh.id
+}
+resource "adcm_host" "h1" {
+  provider_id  = data.adcm_provider.ssh.id
+  fqdn         = "h1"
+  config_apply = jsonencode({
+    "ansible_user" : "adcm", "ansible_host" : "127.0.0.1",
+    "ansible_ssh_private_key_file" : "${tls_private_key.example.private_key_pem}"
+  })
+}
+```
