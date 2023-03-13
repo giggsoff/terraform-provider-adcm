@@ -29,7 +29,7 @@ data "adcm_provider" "ssh" {
 resource "adcm_host" "h1" {
   provider_id  = data.adcm_provider.ssh.id
   fqdn         = "h1"
-  config_apply = jsonencode({
+  config = jsonencode({
     "ansible_user" : "adcm", "ansible_host" : "127.0.0.1",
     "ansible_ssh_private_key_file" : "${tls_private_key.example.private_key_pem}"
   })

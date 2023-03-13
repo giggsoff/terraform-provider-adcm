@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	adcmClient "github.com/giggsoff/terraform-provider-adcm/client"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -39,8 +40,6 @@ type hostResourceModel struct {
 	ProviderID  types.Int64  `tfsdk:"provider_id"`
 	ClusterID   types.Int64  `tfsdk:"cluster_id"`
 	Config      types.String `tfsdk:"config"`
-	ConfigApply types.String `tfsdk:"config_apply"`
-	LastUpdated types.String `tfsdk:"last_updated"`
 }
 
 // Metadata returns the data source type name.
@@ -51,15 +50,14 @@ func (r *hostResource) Metadata(_ context.Context, req resource.MetadataRequest,
 // Schema defines the schema for the data source.
 func (r *hostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		Description: "Manages an order.",
+		Description: "Manages an host.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
-				Description: "Numeric identifier of the order.",
+				Description: "Numeric identifier of the host.",
 				Computed:    true,
-			},
-			"last_updated": schema.StringAttribute{
-				Description: "Timestamp of the last Terraform update of the order.",
-				Computed:    true,
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
 			},
 			"fqdn": schema.StringAttribute{
 				Description: "FQDN of host.",
@@ -77,13 +75,9 @@ func (r *hostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Description: "Cluster ID of host.",
 				Optional:    true,
 			},
-			"config_apply": schema.StringAttribute{
+			"config": schema.StringAttribute{
 				Description: "Config of host in JSON string to apply.",
 				Optional:    true,
-			},
-			"config": schema.StringAttribute{
-				Description: "Config of host in JSON string from ADCM.",
-				Computed:    true,
 			},
 		},
 	}
@@ -114,8 +108,8 @@ func (r *hostResource) Create(ctx context.Context, req resource.CreateRequest, r
 	host.ProviderID = plan.ProviderID.ValueInt64()
 	host.FQDN = plan.FQDN.ValueString()
 	host.Description = plan.Description.ValueString()
-	if plan.ConfigApply.ValueString() != "" {
-		err := json.Unmarshal([]byte(plan.ConfigApply.ValueString()), &host.Config)
+	if plan.Config.ValueString() != "" {
+		err := json.Unmarshal([]byte(plan.Config.ValueString()), &host.Config)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error creating host",
@@ -137,16 +131,10 @@ func (r *hostResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.Int64Value(h.ID)
-	plan.LastUpdated = types.StringValue(time.Now().Format(time.RFC850))
-	cfg, err := json.Marshal(h.Config)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading ADCM host config",
-			fmt.Sprintf("Could not read ADCM host config ID %d: %s", h.ID, err),
-		)
-		return
+	if h.ClusterID != 0 {
+		plan.ClusterID = types.Int64Value(h.ClusterID)
 	}
-	plan.Config = types.StringValue(string(cfg))
+	plan.ProviderID = types.Int64Value(h.ProviderID)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
@@ -179,18 +167,15 @@ func (r *hostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	// Overwrite items with refreshed state
 	state.ID = types.Int64Value(h.ID)
 	state.FQDN = types.StringValue(h.FQDN)
-	state.Description = types.StringValue(h.Description)
-	state.ProviderID = types.Int64Value(h.ProviderID)
-	state.ClusterID = types.Int64Value(h.ClusterID)
-	cfg, err := json.Marshal(h.Config)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Error Reading ADCM host config",
-			fmt.Sprintf("Could not read ADCM host config ID %d: %s", state.ID.ValueInt64(), err),
-		)
-		return
+	if h.Description != state.Description.ValueString() {
+		state.Description = types.StringValue(h.Description)
 	}
-	state.Config = types.StringValue(string(cfg))
+	if h.ProviderID != 0 {
+		state.ProviderID = types.Int64Value(h.ProviderID)
+	}
+	if h.ClusterID != 0 {
+		state.ClusterID = types.Int64Value(h.ClusterID)
+	}
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -202,7 +187,10 @@ func (r *hostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 
 // Update updates the resource and sets the updated Terraform state on success.
 func (r *hostResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	panic("implement me")
+	resp.Diagnostics.AddError(
+		"Error Update ADCM host",
+		fmt.Sprintf("%+v", req),
+	)
 }
 
 // Delete deletes the resource and removes the Terraform state on success.
