@@ -197,5 +197,6 @@ func (a adcmProvider) DataSources(_ context.Context) []func() datasource.DataSou
 func (a adcmProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewHostResource,
+		NewClusterResource,
 	}
 }

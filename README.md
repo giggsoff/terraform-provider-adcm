@@ -34,4 +34,12 @@ resource "adcm_host" "h1" {
     "ansible_ssh_private_key_file" : "${tls_private_key.example.private_key_pem}"
   })
 }
+data "adcm_bundle" "adpg" {
+  name = "ADPG"
+}
+resource "adcm_cluster" "c1" {
+  bundle_id = data.adcm_bundle.adpg.id
+  name = "c1"
+  description = "c1"
+}
 ```

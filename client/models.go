@@ -50,3 +50,23 @@ type HostSearch struct {
 	ProviderID  int64  `json:"provider_id"`
 	ClusterID   int64  `json:"cluster_id"`
 }
+
+type Cluster struct {
+	ClusterResponse
+	ClusterConfigResponse
+}
+
+type ClusterResponse struct {
+	ClusterSearch
+}
+
+type ClusterConfigResponse struct {
+	Config map[string]interface{} `json:"config"`
+}
+
+type ClusterSearch struct {
+	Identifier
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	BundleID    int64  `json:"bundle_id"`
+}
