@@ -53,7 +53,10 @@ type HostSearch struct {
 
 type Cluster struct {
 	ClusterResponse
-	ClusterConfigResponse
+	ServicesConfig ServiceConfigResponse
+	ClusterConfig  ClusterConfigResponse
+	HCMap          map[string][]map[string][]string `json:"hc_map"`
+	State          string                           `json:"state"`
 }
 
 type ClusterResponse struct {
@@ -64,9 +67,19 @@ type ClusterConfigResponse struct {
 	Config map[string]interface{} `json:"config"`
 }
 
+type ServiceConfigResponse struct {
+	Config map[string]interface{} `json:"config"`
+	Attr   map[string]interface{} `json:"attr"`
+}
+
 type ClusterSearch struct {
 	Identifier
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	BundleID    int64  `json:"bundle_id"`
+}
+
+type Component struct {
+	Identifier
+	Name string `json:"name"`
 }

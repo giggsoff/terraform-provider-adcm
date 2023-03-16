@@ -38,7 +38,6 @@ type hostResourceModel struct {
 	FQDN        types.String `tfsdk:"fqdn"`
 	Description types.String `tfsdk:"description"`
 	ProviderID  types.Int64  `tfsdk:"provider_id"`
-	ClusterID   types.Int64  `tfsdk:"cluster_id"`
 	Config      types.String `tfsdk:"config"`
 }
 
@@ -71,10 +70,6 @@ func (r *hostResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Description: "FQDN of host.",
 				Optional:    true,
 			},
-			"cluster_id": schema.Int64Attribute{
-				Description: "Cluster ID of host.",
-				Optional:    true,
-			},
 			"config": schema.StringAttribute{
 				Description: "Config of host in JSON string to apply.",
 				Optional:    true,
@@ -104,7 +99,6 @@ func (r *hostResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Generate API request body from plan
 	var host adcmClient.Host
-	host.ClusterID = plan.ClusterID.ValueInt64()
 	host.ProviderID = plan.ProviderID.ValueInt64()
 	host.FQDN = plan.FQDN.ValueString()
 	host.Description = plan.Description.ValueString()
@@ -131,9 +125,6 @@ func (r *hostResource) Create(ctx context.Context, req resource.CreateRequest, r
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.Int64Value(h.ID)
-	if h.ClusterID != 0 {
-		plan.ClusterID = types.Int64Value(h.ClusterID)
-	}
 	plan.ProviderID = types.Int64Value(h.ProviderID)
 
 	// Set state to fully populated data
@@ -172,9 +163,6 @@ func (r *hostResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 	if h.ProviderID != 0 {
 		state.ProviderID = types.Int64Value(h.ProviderID)
-	}
-	if h.ClusterID != 0 {
-		state.ClusterID = types.Int64Value(h.ClusterID)
 	}
 
 	// Set refreshed state

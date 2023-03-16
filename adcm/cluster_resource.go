@@ -34,11 +34,13 @@ type clusterResource struct {
 
 // clusterResourceModel maps order item data.
 type clusterResourceModel struct {
-	ID          types.Int64  `tfsdk:"id"`
-	Name        types.String `tfsdk:"name"`
-	Description types.String `tfsdk:"description"`
-	BundleID    types.Int64  `tfsdk:"bundle_id"`
-	Config      types.String `tfsdk:"config"`
+	ID             types.Int64  `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Description    types.String `tfsdk:"description"`
+	BundleID       types.Int64  `tfsdk:"bundle_id"`
+	ClusterConfig  types.String `tfsdk:"cluster_config"`
+	ServicesConfig types.String `tfsdk:"services_config"`
+	HCMap          types.String `tfsdk:"hc_map"`
 }
 
 // Metadata returns the data source type name.
@@ -70,8 +72,16 @@ func (r *clusterResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Cluster ID of cluster.",
 				Required:    true,
 			},
-			"config": schema.StringAttribute{
+			"cluster_config": schema.StringAttribute{
 				Description: "Config of cluster in JSON string to apply.",
+				Optional:    true,
+			},
+			"services_config": schema.StringAttribute{
+				Description: "Config of services in JSON string to apply.",
+				Optional:    true,
+			},
+			"hc_map": schema.StringAttribute{
+				Description: "Config of host-component mapping in JSON string to apply.",
 				Optional:    true,
 			},
 		},
@@ -102,12 +112,32 @@ func (r *clusterResource) Create(ctx context.Context, req resource.CreateRequest
 	cluster.BundleID = plan.BundleID.ValueInt64()
 	cluster.Name = plan.Name.ValueString()
 	cluster.Description = plan.Description.ValueString()
-	if plan.Config.ValueString() != "" {
-		err := json.Unmarshal([]byte(plan.Config.ValueString()), &cluster.Config)
+	if plan.ClusterConfig.ValueString() != "" {
+		err := json.Unmarshal([]byte(plan.ClusterConfig.ValueString()), &cluster.ClusterConfig.Config)
 		if err != nil {
 			resp.Diagnostics.AddError(
 				"Error creating cluster",
-				"Could not create cluster, unexpected error: "+err.Error(),
+				"Could not unmarshal cluster config of cluster, unexpected error: "+err.Error(),
+			)
+			return
+		}
+	}
+	if plan.ServicesConfig.ValueString() != "" {
+		err := json.Unmarshal([]byte(plan.ServicesConfig.ValueString()), &cluster.ServicesConfig.Config)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error creating cluster",
+				"Could not unmarshal services config of cluster, unexpected error: "+err.Error(),
+			)
+			return
+		}
+	}
+	if plan.HCMap.ValueString() != "" {
+		err := json.Unmarshal([]byte(plan.HCMap.ValueString()), &cluster.HCMap)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error creating cluster",
+				"Could not unmarshal hc map of cluster, unexpected error: "+err.Error(),
 			)
 			return
 		}
