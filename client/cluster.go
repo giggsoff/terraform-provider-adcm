@@ -30,6 +30,83 @@ func (c *Client) getClusterPrototypeID(bundleID int64) (int64, error) {
 	return clusterPrototypeIDS[0].ID, nil
 }
 
+func (c *Client) getClusterActionID(clusterID int64, actionName string) (int64, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/cluster/%d/action/?name=%s", c.HostURL, clusterID, actionName), nil)
+	if err != nil {
+		return 0, err
+	}
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return 0, err
+	}
+	var actionIDs []Identifier
+	err = json.Unmarshal(body, &actionIDs)
+	if err != nil {
+		return 0, err
+	}
+	if len(actionIDs) < 1 {
+		return 0, fmt.Errorf("no action found")
+	}
+	return actionIDs[0].ID, nil
+}
+
+func (c *Client) getClusterActionConfig(clusterID int64, actionID int64) (*ClusterConfigResponse, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/cluster/%d/action/%d/", c.HostURL, clusterID, actionID), nil)
+	if err != nil {
+		return nil, err
+	}
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+	var configSchema ClusterConfigResponse
+	err = json.Unmarshal(body, &configSchema)
+	if err != nil {
+		return nil, err
+	}
+	var config ClusterConfigResponse
+	config.Config = make(map[string]interface{})
+	if nestedConfig, defined := configSchema.Config["config"]; defined {
+		nestedConfigParsed, ok := nestedConfig.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("unexpected config schema: not a list")
+		}
+		for _, elInt := range nestedConfigParsed {
+			el, ok := elInt.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("unexpected config schema: not a map")
+			}
+			itemName, ok := el["name"]
+			if !ok {
+				return nil, fmt.Errorf("unexpected config schema: no name")
+			}
+			itemNameParsed, ok := itemName.(string)
+			if !ok {
+				return nil, fmt.Errorf("unexpected config schema: name not string")
+			}
+			if itemType, defined := el["type"]; defined {
+				if itemTypeParsed, ok := itemType.(string); ok {
+					if itemTypeParsed == "group" {
+						config.Config[itemNameParsed] = make(map[string]interface{})
+						continue
+					}
+				}
+			}
+			if itemSubName, defined := el["subname"]; defined && itemSubName != "" {
+				if itemSubNameParsed, ok := itemSubName.(string); ok {
+					if config.Config[itemNameParsed] == nil {
+						config.Config[itemNameParsed] = make(map[string]interface{})
+					}
+					config.Config[itemNameParsed].(map[string]interface{})[itemSubNameParsed] = el["value"]
+					continue
+				}
+			}
+			config.Config[itemNameParsed] = el["value"]
+		}
+	}
+	return &config, nil
+}
+
 func (c *Client) getServicePrototypeID(bundleID int64, serviceName string) (int64, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/stack/service/?bundle_id=%d&name=%s", c.HostURL, bundleID, serviceName), nil)
 	if err != nil {
@@ -340,6 +417,62 @@ func (c *Client) DeleteCluster(cluster ClusterSearch) error {
 	_, err = c.doRequest(req, nil)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// ClusterAction - run action on cluster
+func (c *Client) ClusterAction(cluster ClusterSearch, actionName string, wait bool) error {
+	h, err := c.GetCluster(cluster)
+	if err != nil {
+		return err
+	}
+	actionID, err := c.getClusterActionID(h.ID, actionName)
+	if err != nil {
+		return err
+	}
+	cfg, err := c.getClusterActionConfig(h.ID, actionID)
+	if err != nil {
+		return err
+	}
+	jsonValue, _ := json.Marshal(cfg)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/cluster/%d/action/%d/run/", c.HostURL, h.ID, actionID), bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/json;charset=utf-8")
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+	var taskID Identifier
+	err = json.Unmarshal(body, &taskID)
+	if err != nil {
+		return err
+	}
+	if wait {
+		for i := 0; i < 100; i++ {
+			req, err = http.NewRequest("GET", fmt.Sprintf("%s/api/v1/task/%d", c.HostURL, taskID.ID), nil)
+			if err != nil {
+				return err
+			}
+			body, err := c.doRequest(req, nil)
+			if err != nil {
+				return err
+			}
+			var taskResponse TaskResponse
+			err = json.Unmarshal(body, &taskResponse)
+			if err != nil {
+				return err
+			}
+			if taskResponse.Status == "failed" {
+				return fmt.Errorf("failed task")
+			}
+			if taskResponse.Status != "running" {
+				return nil
+			}
+			time.Sleep(10 * time.Second)
+		}
 	}
 	return nil
 }

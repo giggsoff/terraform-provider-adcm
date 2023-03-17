@@ -87,3 +87,8 @@ type Component struct {
 	Identifier
 	Name string `json:"name"`
 }
+
+type TaskResponse struct {
+	Identifier
+	Status string `json:"status"`
+}

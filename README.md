@@ -51,5 +51,6 @@ resource "adcm_cluster" "c1" {
       "use_adpg_repo" : true
     }
   })
+  action = "Install"
 }
 ```

@@ -41,6 +41,7 @@ type clusterResourceModel struct {
 	ClusterConfig  types.String `tfsdk:"cluster_config"`
 	ServicesConfig types.String `tfsdk:"services_config"`
 	HCMap          types.String `tfsdk:"hc_map"`
+	Action         types.String `tfsdk:"action"`
 }
 
 // Metadata returns the data source type name.
@@ -82,6 +83,10 @@ func (r *clusterResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 			},
 			"hc_map": schema.StringAttribute{
 				Description: "Config of host-component mapping in JSON string to apply.",
+				Optional:    true,
+			},
+			"action": schema.StringAttribute{
+				Description: "action to run",
 				Optional:    true,
 			},
 		},
@@ -151,6 +156,17 @@ func (r *clusterResource) Create(ctx context.Context, req resource.CreateRequest
 			"Could not create cluster, unexpected error: "+err.Error(),
 		)
 		return
+	}
+
+	if plan.Action.ValueString() != "" {
+		err := r.client.ClusterAction(adcmClient.ClusterSearch{Identifier: adcmClient.Identifier{ID: h.ID}}, plan.Action.ValueString(), true)
+		if err != nil {
+			resp.Diagnostics.AddError(
+				"Error creating cluster",
+				"Could not run action on cluster, unexpected error: "+err.Error(),
+			)
+			return
+		}
 	}
 
 	// Map response body to schema and populate Computed attribute values
