@@ -14,14 +14,16 @@ provider "adcm" {
   username = "admin"
   password = "admin"
 }
-data "adcm_bundle" "ssh" {
-  name = "SSH Common"
+resource "adcm_bundle" "ssh" {
+  url = "URL"
 }
-data "adcm_provider" "ssh" {
-  bundle_id = data.adcm_bundle.ssh.id
+resource "adcm_provider" "ssh" {
+  bundle_id = adcm_bundle.ssh.id
+  name = "ssh"
+  description = "ssh"
 }
 resource "adcm_host" "h1" {
-  provider_id = data.adcm_provider.ssh.id
+  provider_id = adcm_provider.ssh.id
   fqdn        = "h1"
   config      = jsonencode({
     "ansible_user" : "adcm", "ansible_host" : "127.0.0.1",

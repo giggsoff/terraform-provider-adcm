@@ -1,10 +1,32 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/imdario/mergo"
 	"net/http"
 )
+
+func (c *Client) getProviderPrototypeID(bundleID int64) (int64, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/stack/provider/?bundle_id=%d", c.HostURL, bundleID), nil)
+	if err != nil {
+		return 0, err
+	}
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return 0, err
+	}
+	var clusterPrototypeIDS []Identifier
+	err = unwrapResults(body, &clusterPrototypeIDS)
+	if err != nil {
+		return 0, err
+	}
+	if len(clusterPrototypeIDS) < 1 {
+		return 0, fmt.Errorf("no cluster prototypes found")
+	}
+	return clusterPrototypeIDS[0].ID, nil
+}
 
 // GetProviders - Returns list of providers
 func (c *Client) GetProviders() ([]Provider, error) {
@@ -77,4 +99,72 @@ func (c *Client) GetProvider(searchOpts ProviderSearch) (*Provider, error) {
 		return nil, fmt.Errorf("your query returned more than one result. Please try a more specific search criteria")
 	}
 	return &res[0], nil
+}
+
+// CreateProvider - create provider
+func (c *Client) CreateProvider(provider Provider) (*Provider, error) {
+	providerPrototypeID, err := c.getProviderPrototypeID(provider.BundleID)
+	if err != nil {
+		return nil, err
+	}
+
+	values := map[string]interface{}{"name": provider.Name, "description": provider.Description, "prototype_id": providerPrototypeID}
+	jsonValue, _ := json.Marshal(values)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/provider/", c.HostURL), bytes.NewBuffer(jsonValue))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Content-Type", "application/json;charset=utf-8")
+	body, err := c.doRequest(req, nil)
+	if err != nil {
+		return nil, err
+	}
+	var clusterID Identifier
+	err = json.Unmarshal(body, &clusterID)
+	if err != nil {
+		return nil, err
+	}
+	if len(provider.ProviderConfig.Config) > 0 {
+		createdProvider, err := c.GetProvider(ProviderSearch{Identifier: clusterID})
+		if err != nil {
+			return nil, err
+		}
+		err = mergo.Merge(&createdProvider.ProviderConfig.Config, provider.ProviderConfig.Config, mergo.WithOverride)
+		if err != nil {
+			return nil, err
+		}
+		cfgResponse := ProviderConfigResponse{createdProvider.ProviderConfig.Config}
+		data, err := json.Marshal(cfgResponse)
+		if err != nil {
+			return nil, err
+		}
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/provider/%d/config/history/", c.HostURL, clusterID.ID), bytes.NewBuffer(data))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Add("Content-Type", "application/json;charset=utf-8")
+		_, err = c.doRequest(req, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.GetProvider(ProviderSearch{Identifier: clusterID})
+}
+
+// DeleteProvider - create host
+func (c *Client) DeleteProvider(provider ProviderSearch) error {
+	h, err := c.GetProvider(provider)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/provider/%d/", c.HostURL, h.ID), nil)
+	if err != nil {
+		return err
+	}
+	_, err = c.doRequest(req, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }

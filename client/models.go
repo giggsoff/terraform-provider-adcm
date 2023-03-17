@@ -20,6 +20,7 @@ type BundleSearch struct {
 
 type Provider struct {
 	ProviderSearch
+	ProviderConfig ProviderConfigResponse
 }
 
 type ProviderSearch struct {
@@ -28,6 +29,9 @@ type ProviderSearch struct {
 	BundleID    int64  `json:"bundle_id"`
 	Description string `json:"description"`
 	State       string `json:"state"`
+}
+type ProviderConfigResponse struct {
+	Config map[string]interface{} `json:"config"`
 }
 
 type Host struct {
