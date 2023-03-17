@@ -30,6 +30,12 @@ resource "adcm_host" "h1" {
     "ansible_ssh_private_key_file" : "PRIVATE KEY"
   })
 }
+resource "adcm_action" "statuschecker" {
+  resource_id = adcm_host.h1.id
+  action      = "statuschecker"
+  type        = "host"
+  config      = jsonencode({})
+}
 resource "adcm_bundle" "adpg" {
   url = "URL"
 }
@@ -51,6 +57,31 @@ resource "adcm_cluster" "c1" {
       "use_adpg_repo" : true
     }
   })
-  action = "Install"
+}
+resource "adcm_action" "adb-install" {
+  resource_id = adcm_cluster.c1.id
+  action      = "Install"
+  type        = "cluster"
+  config      = jsonencode({})
+}
+data "adcm_service" "adb" {
+  cluster_id = adcm_cluster.c1.id
+  name       = "adb"
+}
+resource "adcm_action" "role-create" {
+  resource_id = adcm_service.adb.id
+  action      = "Create role"
+  type        = "service"
+  config      = jsonencode({
+    rolename                     = "test_user",
+    rolepass                     = "test_user_password",
+    allow_login                  = True,
+    make_superuser               = True,
+    allow_create_db              = True,
+    allow_create_role            = True,
+    allow_create_external_tables = True,
+    resource_group               = "default_group",
+  })
+  depends_on = [adcm_cluster_action.adb-install]
 }
 ```
