@@ -69,7 +69,7 @@ func (r *clusterResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Required:    true,
 			},
 			"bundle_id": schema.Int64Attribute{
-				Description: "Cluster ID of cluster.",
+				Description: "Bundle ID of cluster.",
 				Required:    true,
 			},
 			"cluster_config": schema.StringAttribute{

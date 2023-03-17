@@ -9,17 +9,11 @@ terraform {
   }
 }
 
-resource "tls_private_key" "example" {
-  algorithm = "RSA"
-  rsa_bits  = 4096
-}
-
 provider "adcm" {
   host     = "http://127.0.0.1:8000"
   username = "admin"
   password = "admin"
 }
-
 data "adcm_bundle" "ssh" {
   name = "SSH Common"
 }
@@ -31,14 +25,14 @@ resource "adcm_host" "h1" {
   fqdn        = "h1"
   config      = jsonencode({
     "ansible_user" : "adcm", "ansible_host" : "127.0.0.1",
-    "ansible_ssh_private_key_file" : "${tls_private_key.example.private_key_pem}"
+    "ansible_ssh_private_key_file" : "PRIVATE KEY"
   })
 }
-data "adcm_bundle" "adpg" {
-  name = "ADPG"
+resource "adcm_bundle" "adpg" {
+  url = "URL"
 }
 resource "adcm_cluster" "c1" {
-  bundle_id   = data.adcm_bundle.adpg.id
+  bundle_id   = adcm_bundle.adpg.id
   name        = "c1"
   description = "c1"
   hc_map      = jsonencode({

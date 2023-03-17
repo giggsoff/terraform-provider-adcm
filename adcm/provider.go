@@ -198,5 +198,6 @@ func (a adcmProvider) Resources(_ context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 		NewHostResource,
 		NewClusterResource,
+		NewBundleResource,
 	}
 }
