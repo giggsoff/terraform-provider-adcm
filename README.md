@@ -10,8 +10,8 @@ terraform {
 }
 
 provider "adcm" {
-  host     = "http://127.0.0.1:8000"
-  username = "admin"
+  url      = "http://127.0.0.1:8000"
+  login    = "admin"
   password = "admin"
 }
 resource "adcm_bundle" "ssh" {

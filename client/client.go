@@ -28,21 +28,24 @@ type AuthStruct struct {
 
 // AuthResponse -
 type AuthResponse struct {
-	UserID   int    `json:"user_id`
-	Username string `json:"username`
+	UserID   int    `json:"user_id"`
+	Username string `json:"username"`
 	Token    string `json:"token"`
 }
 
 // NewClient -
-func NewClient(host, username, password *string) (*Client, error) {
+func NewClient(url, username, password *string) (*Client, error) {
+	transport := http.DefaultTransport
+	// uncomment to disable proxy here as it may conflict with global one
+	// transport.(*http.Transport).Proxy = nil
 	c := Client{
-		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		HTTPClient: &http.Client{Timeout: 10 * time.Second, Transport: transport},
 		// Default ADCM URL
 		HostURL: HostURL,
 	}
 
-	if host != nil {
-		c.HostURL = *host
+	if url != nil {
+		c.HostURL = *url
 	}
 
 	// If username or password not provided, return empty client

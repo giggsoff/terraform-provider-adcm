@@ -29,8 +29,8 @@ func New() provider.Provider {
 type adcmProvider struct{}
 
 type adcmProviderModel struct {
-	Host     types.String `tfsdk:"host"`
-	Username types.String `tfsdk:"username"`
+	Url      types.String `tfsdk:"url"`
+	Login    types.String `tfsdk:"login"`
 	Password types.String `tfsdk:"password"`
 }
 
@@ -42,12 +42,12 @@ func (a adcmProvider) Schema(_ context.Context, _ provider.SchemaRequest, respon
 	response.Schema = schema.Schema{
 		Description: "Interact with ADCM.",
 		Attributes: map[string]schema.Attribute{
-			"host": schema.StringAttribute{
-				Description: "URI for ADCM API. May also be provided via ADCM_HOST environment variable.",
+			"url": schema.StringAttribute{
+				Description: "URI for ADCM API. May also be provided via ADCM_URL environment variable.",
 				Optional:    true,
 			},
-			"username": schema.StringAttribute{
-				Description: "Username for ADCM API. May also be provided via ADCM_USERNAME environment variable.",
+			"login": schema.StringAttribute{
+				Description: "Login for ADCM API. May also be provided via ADCM_LOGIN environment variable.",
 				Optional:    true,
 			},
 			"password": schema.StringAttribute{
@@ -73,21 +73,21 @@ func (a adcmProvider) Configure(ctx context.Context, request provider.ConfigureR
 	// If practitioner provided a configuration value for any of the
 	// attributes, it must be a known value.
 
-	if config.Host.IsUnknown() {
+	if config.Url.IsUnknown() {
 		response.Diagnostics.AddAttributeError(
-			path.Root("host"),
-			"Unknown ADCM API Host",
+			path.Root("url"),
+			"Unknown ADCM API Url",
 			"The provider cannot create the ADCM API client as there is an unknown configuration value for the ADCM API host. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the ADCM_HOST environment variable.",
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the ADCM_URL environment variable.",
 		)
 	}
 
-	if config.Username.IsUnknown() {
+	if config.Login.IsUnknown() {
 		response.Diagnostics.AddAttributeError(
 			path.Root("username"),
-			"Unknown ADCM API Username",
-			"The provider cannot create the ADCM API client as there is an unknown configuration value for the ADCM API username. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the ADCM_USERNAME environment variable.",
+			"Unknown ADCM API login",
+			"The provider cannot create the ADCM API client as there is an unknown configuration value for the ADCM API login. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the ADCM_LOGIN environment variable.",
 		)
 	}
 
@@ -107,16 +107,16 @@ func (a adcmProvider) Configure(ctx context.Context, request provider.ConfigureR
 	// Default values to environment variables, but override
 	// with Terraform configuration value if set.
 
-	host := os.Getenv("ADCM_HOST")
-	username := os.Getenv("ADCM_USERNAME")
+	url := os.Getenv("ADCM_URL")
+	login := os.Getenv("ADCM_LOGIN")
 	password := os.Getenv("ADCM_PASSWORD")
 
-	if !config.Host.IsNull() {
-		host = config.Host.ValueString()
+	if !config.Url.IsNull() {
+		url = config.Url.ValueString()
 	}
 
-	if !config.Username.IsNull() {
-		username = config.Username.ValueString()
+	if !config.Login.IsNull() {
+		login = config.Login.ValueString()
 	}
 
 	if !config.Password.IsNull() {
@@ -126,22 +126,22 @@ func (a adcmProvider) Configure(ctx context.Context, request provider.ConfigureR
 	// If any of the expected configurations are missing, return
 	// errors with provider-specific guidance.
 
-	if host == "" {
+	if url == "" {
 		response.Diagnostics.AddAttributeError(
-			path.Root("host"),
-			"Missing ADCM API Host",
-			"The provider cannot create the ADCM API client as there is a missing or empty value for the ADCM API host. "+
-				"Set the host value in the configuration or use the ADCM_HOST environment variable. "+
+			path.Root("url"),
+			"Missing ADCM API url",
+			"The provider cannot create the ADCM API client as there is a missing or empty value for the ADCM API url. "+
+				"Set the host value in the configuration or use the ADCM_URL environment variable. "+
 				"If either is already set, ensure the value is not empty.",
 		)
 	}
 
-	if username == "" {
+	if login == "" {
 		response.Diagnostics.AddAttributeError(
-			path.Root("username"),
-			"Missing ADCM API Username",
-			"The provider cannot create the ADCM API client as there is a missing or empty value for the ADCM API username. "+
-				"Set the username value in the configuration or use the ADCM_USERNAME environment variable. "+
+			path.Root("login"),
+			"Missing ADCM API login",
+			"The provider cannot create the ADCM API client as there is a missing or empty value for the ADCM API login. "+
+				"Set the username value in the configuration or use the ADCM_LOGIN environment variable. "+
 				"If either is already set, ensure the value is not empty.",
 		)
 	}
@@ -149,7 +149,7 @@ func (a adcmProvider) Configure(ctx context.Context, request provider.ConfigureR
 	if password == "" {
 		response.Diagnostics.AddAttributeError(
 			path.Root("password"),
-			"Missing ADCM API Password",
+			"Missing ADCM API password",
 			"The provider cannot create the ADCM API client as there is a missing or empty value for the ADCM API password. "+
 				"Set the password value in the configuration or use the ADCM_PASSWORD environment variable. "+
 				"If either is already set, ensure the value is not empty.",
@@ -160,15 +160,15 @@ func (a adcmProvider) Configure(ctx context.Context, request provider.ConfigureR
 		return
 	}
 
-	ctx = tflog.SetField(ctx, "adcm_host", host)
-	ctx = tflog.SetField(ctx, "adcm_username", username)
+	ctx = tflog.SetField(ctx, "adcm_url", url)
+	ctx = tflog.SetField(ctx, "adcm_login", login)
 	ctx = tflog.SetField(ctx, "adcm_password", password)
 	ctx = tflog.MaskFieldValuesWithFieldKeys(ctx, "adcm_password")
 
 	tflog.Debug(ctx, "Creating ADCM client")
 
 	// Create a new ADCM client using the configuration values
-	client, err := adcmClient.NewClient(&host, &username, &password)
+	client, err := adcmClient.NewClient(&url, &login, &password)
 	if err != nil {
 		response.Diagnostics.AddError(
 			"Unable to Create ADCM API Client",
